@@ -64,6 +64,8 @@ from typing import Optional, Tuple, List, Dict, Any
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import statsmodels.api as sm
+
 
 # -----------------------------
 # Utilities
