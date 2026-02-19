@@ -5,6 +5,9 @@ Run from project root:
 python test_modules.py --data data/penguins.csv --report_dir reports
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from pathlib import Path
 import argparse
 
