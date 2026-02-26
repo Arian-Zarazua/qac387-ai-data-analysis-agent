@@ -92,26 +92,21 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from src import ensure_dirs, read_data, basic_profile
 
 
-# -------------------------------------------------------------------------------------------------
-# TODO: Write your own SYSTEM PROMPT
-# -------------------------------------------------------------------------------------------------
-# Instructions:
-# 1) Replace the text in SYSTEM_PROMPT with your own system prompt.
-# 2) Your prompt MUST:
-#    - Define the assistant's role (e.g., "You are a data analysis assistant for students.")
-#    - State that the assistant ONLY sees the dataset schema (columns + dtypes)
-#    - Instruct the model NOT to invent columns that are not in the schema
-#    - Specify the output format (research questions + variables + analysis + clarifying questions)
-#
-# Tip: Keep it short and explicit. You can iterate after testing.
 SYSTEM_PROMPT = """
-TODO: Replace this with your own system prompt.
+You are a data analysis assistant for students.
+You only have access to the dataset schema (column names and dtypes), not row values.
+Never invent, rename, or assume columns that are not explicitly listed in the provided schema.
+If a requested variable is missing, state that clearly and suggest valid schema columns instead.
 
-Required elements:
-- Role
-- Only sees schema
-- No hallucinated columns
-- Output format instructions
+Respond using exactly these sections:
+1) Research Questions:
+- 3-5 concise, testable questions that fit the schema.
+2) Variables:
+- For each question, list likely outcome(s), predictor(s), and possible confounder(s) using only schema columns.
+3) Analysis Ideas:
+- Recommend suitable analysis approaches for each question (e.g., comparison, correlation, regression), with brief rationale.
+4) Clarifying Questions:
+- Ask up to 3 short questions needed to refine the analysis plan.
 """
 
 
@@ -136,7 +131,7 @@ def profile_to_schema_text(profile: dict) -> str:
         "",
         "Columns and dtypes:",
     ]
-    for col in profile["_____"]:
+    for col in profile["columns"]:
         lines.append(f"- {col}: {profile['dtypes'].get(col)}")
 
     return "\n".join(lines)
@@ -151,22 +146,22 @@ def build_chain(
 ):
     """
     Returns either:
-      - a normal LCEL chain (no memory), OR
-      - a RunnableWithMessageHistory (memory-enabled chain)
+    - a normal LCEL chain (no memory), OR
+    - a RunnableWithMessageHistory (memory-enabled chain)
     """
     llm = ChatOpenAI(model=model, temperature=temperature, streaming=stream)
 
     if memory:
         prompt = ChatPromptTemplate.from_messages(
             [
-                ("system", _________),
+                ("system", SYSTEM_PROMPT),
                 ("human", "Dataset schema:\n{schema_text}"),
                 MessagesPlaceholder(variable_name="history"),
                 ("human", "User question:\n{user_query}"),
             ]
         )
 
-        base_chain = prompt | ______ | StrOutputParser()
+        base_chain = prompt | llm | StrOutputParser()
 
         history = InMemoryChatMessageHistory()
         chain_with_history = RunnableWithMessageHistory(
@@ -196,16 +191,16 @@ def build_chain(
 # This is just a simple string, but it could be expanded into a more complex
 # help system if desired.
 HELP_TEXT = """Commands:
-  help     - show example prompts
-  schema   - show the dataset schema
-  exit     - quit the program
+help     - show example prompts
+schema   - show the dataset schema
+exit     - quit the program
 
 Example prompts:
-  - What research questions could I ask with this dataset?
-  - What are strong candidate outcomes vs predictors?
-  - Suggest group comparison questions.
-  - Suggest regression-style questions.
-  - What variables might act as confounders?
+- What research questions could I ask with this dataset?
+- What are strong candidate outcomes vs predictors?
+- Suggest group comparison questions.
+- Suggest regression-style questions.
+- What variables might act as confounders?
 """
 
 
@@ -244,28 +239,28 @@ def main():
     )
 
     parser.add_argument(
-        "_____",
-        type=_____,
-        required=_____,
+        "--data",
+        type=str,
+        required=True,
         help="Path to CSV file",
     )
-    parser.add_argument("--report_dir", type=str, default="_____")
-    parser.add_argument("--model", type=str, default="_____")
-    parser.add_argument("--temperature", type=float, default=_____)
+    parser.add_argument("--report_dir", type=str, default="reports")
+    parser.add_argument("--model", type=str, default="gpt-4o-mini")
+    parser.add_argument("--temperature", type=float, default=0.2)
 
     parser.add_argument(
         "--quiet_schema",
-        action="_____",
+        action="store_true",
         help="Do not print schema automatically at startup",
     )
     parser.add_argument(
         "--memory",
-        action="_____",
+        action="store_true",
         help="Enable conversation memory for this session",
     )
     parser.add_argument(
         "--stream",
-        action="_____",
+        action="store_true",
         help="Stream model output to terminal as it is generated",
     )
 
@@ -291,7 +286,7 @@ def main():
         model=args.model,
         temperature=args.temperature,
         stream=args.stream,
-        memory=args.________,
+        memory=args.memory,
     )
 
     while True:
@@ -341,3 +336,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
